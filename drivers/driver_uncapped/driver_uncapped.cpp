@@ -145,7 +145,7 @@ void CWatchdogDriver_UNCAPPED::Cleanup()
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-class CUNCAPPEDDeviceDriver : public vr::ITrackedDeviceServerDriver, public vr::IVRDisplayComponent, public vr::IVRVirtualDisplay, public vr::IVRDriverDirectModeComponent
+class CUNCAPPEDDeviceDriver : public vr::ITrackedDeviceServerDriver, public vr::IVRDisplayComponent, public vr::IVRVirtualDisplay //, public vr::IVRDriverDirectModeComponent
 {
 public:
 	CUNCAPPEDDeviceDriver(  )
@@ -172,13 +172,13 @@ public:
 		m_flSecondsFromVsyncToPhotons = vr::VRSettings()->GetFloat( k_pch_UNCAPPED_Section, k_pch_UNCAPPED_SecondsFromVsyncToPhotons_Float );
 		m_flDisplayFrequency = vr::VRSettings()->GetFloat( k_pch_UNCAPPED_Section, k_pch_UNCAPPED_DisplayFrequency_Float );
 
-		DriverLog( "driver_null: Serial Number: %s\n", m_sSerialNumber.c_str() );
-		DriverLog( "driver_null: Model Number: %s\n", m_sModelNumber.c_str() );
-		DriverLog( "driver_null: Window: %d %d %d %d\n", m_nWindowX, m_nWindowY, m_nWindowWidth, m_nWindowHeight );
-		DriverLog( "driver_null: Render Target: %d %d\n", m_nRenderWidth, m_nRenderHeight );
-		DriverLog( "driver_null: Seconds from Vsync to Photons: %f\n", m_flSecondsFromVsyncToPhotons );
-		DriverLog( "driver_null: Display Frequency: %f\n", m_flDisplayFrequency );
-		DriverLog( "driver_null: IPD: %f\n", m_flIPD );
+		DriverLog( "driver_uncapped: Serial Number: %s\n", m_sSerialNumber.c_str() );
+		DriverLog( "driver_uncapped: Model Number: %s\n", m_sModelNumber.c_str() );
+		DriverLog( "driver_uncapped: Window: %d %d %d %d\n", m_nWindowX, m_nWindowY, m_nWindowWidth, m_nWindowHeight );
+		DriverLog( "driver_uncapped: Render Target: %d %d\n", m_nRenderWidth, m_nRenderHeight );
+		DriverLog( "driver_uncapped: Seconds from Vsync to Photons: %f\n", m_flSecondsFromVsyncToPhotons );
+		DriverLog( "driver_uncapped: Display Frequency: %f\n", m_flDisplayFrequency );
+		DriverLog( "driver_uncapped: IPD: %f\n", m_flIPD );
 	}
 
 	virtual ~CUNCAPPEDDeviceDriver()
@@ -362,30 +362,30 @@ public:
 	}
 #pragma endregion
 
-#pragma region IVRDriverDirectModeComponent
-	/** Called to allocate textures for applications to render into.  One of these per eye will be passed back to SubmitLayer each frame. */
-	virtual void CreateSwapTextureSet(uint32_t unPid, const SwapTextureSetDesc_t* pSwapTextureSetDesc, SwapTextureSet_t* pOutSwapTextureSet) {}
-
-	/** Used to textures created using CreateSwapTextureSet.  Only one of the set's handles needs to be used to destroy the entire set. */
-	virtual void DestroySwapTextureSet(vr::SharedTextureHandle_t sharedTextureHandle) {}
-
-	/** Used to purge all texture sets for a given process. */
-	virtual void DestroyAllSwapTextureSets(uint32_t unPid) {}
-
-	/** After Present returns, calls this to get the next index to use for rendering. */
-	virtual void GetNextSwapTextureSetIndex(vr::SharedTextureHandle_t sharedTextureHandles[2], uint32_t(*pIndices)[2]) {}
-
-	virtual void SubmitLayer(const SubmitLayerPerEye_t(&perEye)[2]) {}
-
-	/** Submits queued layers for display. */
-	virtual void Present(vr::SharedTextureHandle_t syncTexture) {}
-
-	/** Called after Present to allow driver to take more time until vsync after they've successfully acquired the sync texture in Present.*/
-	virtual void PostPresent() {}
-
-	/** Called to get additional frame timing stats from driver.  Check m_nSize for versioning (new members will be added to end only). */
-	virtual void GetFrameTiming(DriverDirectMode_FrameTiming* pFrameTiming) {}
-#pragma endregion
+//#pragma region IVRDriverDirectModeComponent
+//	/** Called to allocate textures for applications to render into.  One of these per eye will be passed back to SubmitLayer each frame. */
+//	virtual void CreateSwapTextureSet(uint32_t unPid, const SwapTextureSetDesc_t* pSwapTextureSetDesc, SwapTextureSet_t* pOutSwapTextureSet) {}
+//
+//	/** Used to textures created using CreateSwapTextureSet.  Only one of the set's handles needs to be used to destroy the entire set. */
+//	virtual void DestroySwapTextureSet(vr::SharedTextureHandle_t sharedTextureHandle) {}
+//
+//	/** Used to purge all texture sets for a given process. */
+//	virtual void DestroyAllSwapTextureSets(uint32_t unPid) {}
+//
+//	/** After Present returns, calls this to get the next index to use for rendering. */
+//	virtual void GetNextSwapTextureSetIndex(vr::SharedTextureHandle_t sharedTextureHandles[2], uint32_t(*pIndices)[2]) {}
+//
+//	virtual void SubmitLayer(const SubmitLayerPerEye_t(&perEye)[2]) {}
+//
+//	/** Submits queued layers for display. */
+//	virtual void Present(vr::SharedTextureHandle_t syncTexture) {}
+//
+//	/** Called after Present to allow driver to take more time until vsync after they've successfully acquired the sync texture in Present.*/
+//	virtual void PostPresent() {}
+//
+//	/** Called to get additional frame timing stats from driver.  Check m_nSize for versioning (new members will be added to end only). */
+//	virtual void GetFrameTiming(DriverDirectMode_FrameTiming* pFrameTiming) {}
+//#pragma endregion
 
 	virtual DriverPose_t GetPose() 
 	{

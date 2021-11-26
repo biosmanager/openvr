@@ -1,7 +1,8 @@
 {
-   "driver_sample" : {
+   "driver_uncapped" : {
       "enable" : true,
-      "serialNumber" : "1000",
+      "loadPriority": -1000,
+      "serialNumber" : "0000",
       "modelNumber" : "Uncapped null driver",
       "windowX" : 20,
       "windowY" : 20,

@@ -1,6 +1,0 @@
-﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(510,5): warning MSB8028: The intermediate directory (x64\Debug\) contains files shared from another project (driver_sample.vcxproj).  This can lead to incorrect clean and rebuild behavior.
-  driverlog.cpp
-  driver_uncapped.cpp
-  Generating Code...
-     Creating library C:\Users\biosmanager\Source\Repos\openvr\drivers\\bin\drivers\uncapped\bin\win64\driver_uncapped.lib and object C:\Users\biosmanager\Source\Repos\openvr\drivers\\bin\drivers\uncapped\bin\win64\driver_uncapped.exp
-  driver_uncapped.vcxproj -> C:\Users\biosmanager\Source\Repos\openvr\drivers\bin\drivers\uncapped\bin\win64\driver_uncapped.dll
