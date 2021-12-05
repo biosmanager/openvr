@@ -9,6 +9,8 @@
 
 #if defined( _WINDOWS )
 #include <windows.h>
+#include <d3d11.h>
+#pragma comment(lib,"d3d11.lib")
 #endif
 
 using namespace vr;
@@ -145,7 +147,7 @@ void CWatchdogDriver_UNCAPPED::Cleanup()
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
-class CUNCAPPEDDeviceDriver : public vr::ITrackedDeviceServerDriver, public vr::IVRDisplayComponent, public vr::IVRVirtualDisplay //, public vr::IVRDriverDirectModeComponent
+class CUNCAPPEDDeviceDriver : public vr::ITrackedDeviceServerDriver, public vr::IVRDisplayComponent, /* public vr::IVRVirtualDisplay,*/ public vr::IVRDriverDirectModeComponent
 {
 public:
 	CUNCAPPEDDeviceDriver(  )
@@ -242,12 +244,21 @@ public:
 			vr::VRProperties()->SetStringProperty( m_ulPropertyContainer, vr::Prop_NamedIconPathDeviceAlertLow_String, "{uncapped}/icons/headset_uncapped_status_ready_low.png" );
 		}
 
+
+		HRESULT hr;
+		hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_NULL, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &m_d3dDevice, NULL, NULL);
+		DriverLog("CreateDevice: %#X", hr);
+
 		return VRInitError_None;
 	}
 
 	virtual void Deactivate() 
 	{
 		m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
+
+		if (m_d3dDevice) {
+			m_d3dDevice->Release();
+		}
 	}
 
 	virtual void EnterStandby()
@@ -260,14 +271,14 @@ public:
 		{
 			return (vr::IVRDisplayComponent*)this;
 		}
-		if (!_stricmp(pchComponentNameAndVersion, vr::IVRVirtualDisplay_Version))
-		{
-			return (vr::IVRVirtualDisplay*)this;
-		}
-		//if (!_stricmp(pchComponentNameAndVersion, vr::IVRDriverDirectModeComponent_Version))
+		//if (!_stricmp(pchComponentNameAndVersion, vr::IVRVirtualDisplay_Version))
 		//{
-		//	return (vr::IVRDriverDirectModeComponent*)this;
+		//	return (vr::IVRVirtualDisplay*)this;
 		//}
+		if (!_stricmp(pchComponentNameAndVersion, vr::IVRDriverDirectModeComponent_Version))
+		{
+			return (vr::IVRDriverDirectModeComponent*)this;
+		}
 
 		// override this to add a component to a driver
 		return NULL;
@@ -299,7 +310,7 @@ public:
 
 	virtual bool IsDisplayRealDisplay() 
 	{
-		return false;
+		return true;
 	}
 
 	virtual void GetRecommendedRenderTargetSize( uint32_t *pnWidth, uint32_t *pnHeight ) 
@@ -344,48 +355,103 @@ public:
 		return coordinates;
 	}
 
-#pragma region IVRVirtualDisplay
-	virtual void Present(const PresentInfo_t* pPresentInfo, uint32_t unPresentInfoSize)
-	{
-		//DriverLog("VSync: %d, Time: %f", pPresentInfo->vsync, pPresentInfo->flVSyncTimeInSeconds);
+//#pragma region IVRVirtualDisplay
+//	virtual void Present(const PresentInfo_t* pPresentInfo, uint32_t unPresentInfoSize)
+//	{
+//		//DriverLog("VSync: %d, Time: %f", pPresentInfo->vsync, pPresentInfo->flVSyncTimeInSeconds);
+//	}
+//
+//	virtual void WaitForPresent() {
+//		m_frameCounter++;
+//	}
+//
+//	virtual bool GetTimeSinceLastVsync(float* pfSecondsSinceLastVsync, uint64_t* pulFrameCounter) {
+//		*pfSecondsSinceLastVsync = 0.0f;
+//		*pulFrameCounter = m_frameCounter;
+//		
+//		return true;
+//	}
+//#pragma endregion
+
+#pragma region IVRDriverDirectModeComponent
+	/** Called to allocate textures for applications to render into.  One of these per eye will be passed back to SubmitLayer each frame. */
+	virtual void CreateSwapTextureSet(uint32_t unPid, const SwapTextureSetDesc_t* pSwapTextureSetDesc, SwapTextureSet_t* pOutSwapTextureSet) {
+		if (!m_d3dTexture) {
+			D3D11_TEXTURE2D_DESC desc;
+			SecureZeroMemory(&desc, sizeof(desc));
+			desc.Width = pSwapTextureSetDesc->nWidth;
+			desc.Height = pSwapTextureSetDesc->nHeight;
+			desc.MipLevels = 1;
+			desc.ArraySize = 1;
+			desc.Format = (DXGI_FORMAT)pSwapTextureSetDesc->nFormat;
+			desc.SampleDesc.Count = pSwapTextureSetDesc->nSampleCount;
+			desc.SampleDesc.Quality = 0;
+			desc.Usage = D3D11_USAGE_DEFAULT;
+			desc.CPUAccessFlags = 0;
+			desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+			desc.BindFlags = 0;
+
+			HRESULT hr;
+			hr = m_d3dDevice->CreateTexture2D(&desc, NULL, &m_d3dTexture);
+			DriverLog("CreateTexture2D: %#X", hr);
+
+			IDXGIResource* textureResource = NULL;
+			hr = m_d3dTexture->QueryInterface(__uuidof(IDXGIResource), (void**)&textureResource);
+			DriverLog("QueryInterface: %#X", hr);
+			hr = textureResource->GetSharedHandle(&m_d3dTextureHandle);
+			DriverLog("GetSharedHandle: %#X", hr);
+		}
+
+		pOutSwapTextureSet->rSharedTextureHandles[0] = (vr::SharedTextureHandle_t)m_d3dTextureHandle;
+		pOutSwapTextureSet->rSharedTextureHandles[1] = (vr::SharedTextureHandle_t)m_d3dTextureHandle;
+		pOutSwapTextureSet->rSharedTextureHandles[2] = (vr::SharedTextureHandle_t)m_d3dTextureHandle;
+		pOutSwapTextureSet->unTextureFlags = 0;
 	}
 
-	virtual void WaitForPresent() {
-		m_frameCounter++;
+	/** Used to textures created using CreateSwapTextureSet.  Only one of the set's handles needs to be used to destroy the entire set. */
+	virtual void DestroySwapTextureSet(vr::SharedTextureHandle_t sharedTextureHandle) {
+		CleanupTexture();
 	}
 
-	virtual bool GetTimeSinceLastVsync(float* pfSecondsSinceLastVsync, uint64_t* pulFrameCounter) {
-		*pfSecondsSinceLastVsync = 0.0f;
-		*pulFrameCounter = m_frameCounter;
-		
-		return true;
+	/** Used to purge all texture sets for a given process. */
+	virtual void DestroyAllSwapTextureSets(uint32_t unPid) {
+		CleanupTexture();
+	}
+
+	/** After Present returns, calls this to get the next index to use for rendering. */
+	virtual void GetNextSwapTextureSetIndex(vr::SharedTextureHandle_t sharedTextureHandles[2], uint32_t(*pIndices)[2]) {
+		*pIndices[0] = 0;
+		*pIndices[1] = 0;
+	}
+
+	virtual void SubmitLayer(const SubmitLayerPerEye_t(&perEye)[2]) {}
+
+	/** Submits queued layers for display. */
+	virtual void Present(vr::SharedTextureHandle_t syncTexture) {}
+
+	/** Called after Present to allow driver to take more time until vsync after they've successfully acquired the sync texture in Present.*/
+	virtual void PostPresent() {}
+
+	/** Called to get additional frame timing stats from driver.  Check m_nSize for versioning (new members will be added to end only). */
+	virtual void GetFrameTiming(DriverDirectMode_FrameTiming* pFrameTiming) {
+		pFrameTiming->m_nNumDroppedFrames = 0;
+		pFrameTiming->m_nNumFramePresents = 0;
+		pFrameTiming->m_nNumMisPresented = 0;
+		pFrameTiming->m_nReprojectionFlags = 0;
+	}
+
+	void CleanupTexture() {
+		if (m_d3dTextureHandle) {
+			CloseHandle(m_d3dTextureHandle);
+		}
+		if (m_d3dTexture) {
+			m_d3dTexture->Release();
+		}
+
+		m_d3dTexture = nullptr;
+		m_d3dTextureHandle = NULL;
 	}
 #pragma endregion
-
-//#pragma region IVRDriverDirectModeComponent
-//	/** Called to allocate textures for applications to render into.  One of these per eye will be passed back to SubmitLayer each frame. */
-//	virtual void CreateSwapTextureSet(uint32_t unPid, const SwapTextureSetDesc_t* pSwapTextureSetDesc, SwapTextureSet_t* pOutSwapTextureSet) {}
-//
-//	/** Used to textures created using CreateSwapTextureSet.  Only one of the set's handles needs to be used to destroy the entire set. */
-//	virtual void DestroySwapTextureSet(vr::SharedTextureHandle_t sharedTextureHandle) {}
-//
-//	/** Used to purge all texture sets for a given process. */
-//	virtual void DestroyAllSwapTextureSets(uint32_t unPid) {}
-//
-//	/** After Present returns, calls this to get the next index to use for rendering. */
-//	virtual void GetNextSwapTextureSetIndex(vr::SharedTextureHandle_t sharedTextureHandles[2], uint32_t(*pIndices)[2]) {}
-//
-//	virtual void SubmitLayer(const SubmitLayerPerEye_t(&perEye)[2]) {}
-//
-//	/** Submits queued layers for display. */
-//	virtual void Present(vr::SharedTextureHandle_t syncTexture) {}
-//
-//	/** Called after Present to allow driver to take more time until vsync after they've successfully acquired the sync texture in Present.*/
-//	virtual void PostPresent() {}
-//
-//	/** Called to get additional frame timing stats from driver.  Check m_nSize for versioning (new members will be added to end only). */
-//	virtual void GetFrameTiming(DriverDirectMode_FrameTiming* pFrameTiming) {}
-//#pragma endregion
 
 	virtual DriverPose_t GetPose() 
 	{
@@ -433,6 +499,10 @@ private:
 	float m_flIPD;
 
 	uint64_t m_frameCounter = 0;
+
+	ID3D11Device* m_d3dDevice;
+	ID3D11Texture2D *m_d3dTexture;
+	HANDLE m_d3dTextureHandle;
 };
 
 //-----------------------------------------------------------------------------
