@@ -160,9 +160,11 @@
   <ItemGroup>
     <ClCompile Include="driverlog.cpp" />
     <ClCompile Include="driver_uncapped.cpp" />
+    <ClCompile Include="threadtools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="driverlog.h" />
+    <ClInclude Include="threadtools.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

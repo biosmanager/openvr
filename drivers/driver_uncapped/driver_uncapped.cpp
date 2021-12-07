@@ -1,10 +1,13 @@
 //============ Copyright (c) Valve Corporation, All rights reserved. ============
 
 #include <openvr_driver.h>
+#include "threadtools.h"
 #include "driverlog.h"
+
 
 #include <vector>
 #include <thread>
+#include <atomic>
 #include <chrono>
 
 #if defined( _WINDOWS )
@@ -139,7 +142,39 @@ void CWatchdogDriver_UNCAPPED::Cleanup()
 	}
 
 	CleanupDriverLog();
-}
+}	 
+
+
+class CTiming : public CThread
+{
+public:
+	virtual void Run() override {
+		while (!m_doStop) {
+			if (std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - lastVsyncTime).count() > 0.01) {
+				lastVsyncTime = std::chrono::high_resolution_clock::now();
+				m_frameCounter++;
+			}
+		}
+	}
+
+	double get_time_since_last_vsync() {
+		return (std::chrono::high_resolution_clock::now() - lastVsyncTime).count() * 1e-9f;
+	}
+
+	uint64_t get_frame_counter() {
+		return m_frameCounter;
+	}
+
+	void stop() {
+		m_doStop = true;
+		Join();
+	}
+
+private:
+	bool m_doStop = false;
+	uint64_t m_frameCounter = 0;
+	std::chrono::time_point<std::chrono::high_resolution_clock> lastVsyncTime = std::chrono::high_resolution_clock::now();
+};
 
 
 //-----------------------------------------------------------------------------
@@ -179,10 +214,17 @@ public:
 		DriverLog( "driver_uncapped: Seconds from Vsync to Photons: %f\n", m_flSecondsFromVsyncToPhotons );
 		DriverLog( "driver_uncapped: Display Frequency: %f\n", m_flDisplayFrequency );
 		DriverLog( "driver_uncapped: IPD: %f\n", m_flIPD );
+
+		//timingThread = new CTiming();
+		//timingThread->Start();
 	}
 
 	virtual ~CUNCAPPEDDeviceDriver()
 	{
+		if (timingThread) {
+			timingThread->stop();
+			delete timingThread;
+		}
 	}
 
 
@@ -190,7 +232,6 @@ public:
 	{
 		m_unObjectId = unObjectId;
 		m_ulPropertyContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer( m_unObjectId );
-
 
 		vr::VRProperties()->SetStringProperty( m_ulPropertyContainer, Prop_ModelNumber_String, m_sModelNumber.c_str() );
 		vr::VRProperties()->SetStringProperty( m_ulPropertyContainer, Prop_RenderModelName_String, m_sModelNumber.c_str() );
@@ -202,7 +243,11 @@ public:
 		// return a constant that's not 0 (invalid) or 1 (reserved for Oculus)
 		vr::VRProperties()->SetUint64Property( m_ulPropertyContainer, Prop_CurrentUniverseId_Uint64, 2 );
 
-		vr::VRProperties()->SetBoolProperty( m_ulPropertyContainer, Prop_DriverDirectModeSendsVsyncEvents_Bool, false );
+		vr::VRProperties()->SetBoolProperty(m_ulPropertyContainer, Prop_DriverDirectModeSendsVsyncEvents_Bool, false);
+
+		// Prevent fake HMD from going to standby
+		vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/proximity", &m_proximitySensor);
+		vr::VRDriverInput()->UpdateBooleanComponent(m_proximitySensor, true, 0.0);
 
 		// Icons can be configured in code or automatically configured by an external file "drivername\resources\driver.vrresources".
 		// Icon properties NOT configured in code (post Activate) are then auto-configured by the optional presence of a driver's "drivername\resources\driver.vrresources".
@@ -355,7 +400,7 @@ public:
 	}
 
 	virtual bool GetTimeSinceLastVsync(float* pfSecondsSinceLastVsync, uint64_t* pulFrameCounter) {
-		*pfSecondsSinceLastVsync = 0.0f;
+		*pfSecondsSinceLastVsync = 0.0;
 		*pulFrameCounter = m_frameCounter;
 		
 		return true;
@@ -433,6 +478,11 @@ private:
 	float m_flIPD;
 
 	uint64_t m_frameCounter = 0;
+	std::chrono::time_point<std::chrono::high_resolution_clock> lastVsyncTime = std::chrono::high_resolution_clock::now();
+
+	VRInputComponentHandle_t m_proximitySensor;
+
+	CTiming* timingThread = nullptr;
 };
 
 //-----------------------------------------------------------------------------

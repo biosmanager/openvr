@@ -4,13 +4,13 @@
       "loadPriority": -1000,
       "serialNumber" : "0000",
       "modelNumber" : "Uncapped null driver",
-      "windowX" : 1,
-      "windowY" : 1,
-      "windowWidth" :  1,
-      "windowHeight" : 1,
-      "renderWidth" : 1,
-      "renderHeight" : 1,
+      "windowX" : 100,
+      "windowY" : 100,
+      "windowWidth" :  100,
+      "windowHeight" : 100,
+      "renderWidth" : 100,
+      "renderHeight" : 100,
       "secondsFromVsyncToPhotons" : 0.0,
-      "displayFrequency" : 2000
+      "displayFrequency" : 1000
    }
 }
